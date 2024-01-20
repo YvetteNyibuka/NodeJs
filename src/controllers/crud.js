@@ -1,4 +1,7 @@
 const Users = require("../models/Users");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+
 
 const getUsers = async (req, res) => {
   try {
@@ -25,13 +28,15 @@ const getUsers = async (req, res) => {
 
 const addUser = async (req, res) => {
   try {
+    const { password } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10); // 10 is the salt rounds
     const user = new Users({
       username: req.body.username,
       email: req.body.email,
       age: req.body.age,
       favFood: req.body.favFood,
       avatarUrl: req.file.path,
-      password: req.body.password
+      password: hashedPassword,
     });
 
     if (!req.body.username || !req.body.favFood || !req.body.favFood) {
@@ -134,17 +139,27 @@ const login = async (req, res, next) => {
       message: "email or Password not present",
     });
   }
+    
    try {
      const user = await Users.findOne({ email, password });
+     
      if (!user) {
        res.status(401).json({
          message: "Login not successful",
          error: "User not found",
        });
      } else {
+       const token = jwt.sign(
+         { _id: user?._id, email: user?.email },
+         process.env.JWT_SECRET,
+         {
+           expiresIn: "1d",
+         }
+       );
        res.status(200).json({
          message: "Login successful",
          user,
+         token
        });
      }
    } catch (error) {
